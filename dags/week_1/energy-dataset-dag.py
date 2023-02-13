@@ -39,6 +39,19 @@ def energy_dataset_dag():
         from zipfile import ZipFile
         # TODO Unzip files into pandas dataframes
 
+        # energy_zip_files = ZipFile('dags/data/energy-consumption-generation-prices-and-weather.zip')
+        # energy_dfs = {text_file.filename: pd.read_csv(energy_zip_files.open(text_file.filename))
+        #     for text_file in energy_zip_files.infolist()
+        #     if text_file.filename.endswith('.csv')}
+
+        with ZipFile('dags/data/energy-consumption-generation-prices-and-weather.zip', 'r') as z:
+            energy_files = [f for f in z.namelist() if f.endswith('.csv')]
+            energy_dfs = []
+            for file in energy_files:
+                df = pd.read_csv(z.open(file))
+                energy_dfs.append(df)
+        return energy_dfs
+
 
     @task
     def load(unzip_result: List[pd.DataFrame]):
@@ -49,6 +62,9 @@ def energy_dataset_dag():
         """
 
         from airflow.providers.google.cloud.hooks.gcs import GCSHook
+        import io
+        import pyarrow as pa
+        import pyarrow.parquet as pq
 
         data_types = ['generation', 'weather']
 
@@ -58,11 +74,36 @@ def energy_dataset_dag():
         # The google cloud storage github repo has a helpful example for writing from pandas to GCS:
         # https://github.com/googleapis/python-storage/blob/main/samples/snippets/storage_fileio_pandas.py
         
-        client = GCSHook()     \
+        client = GCSHook()     
         # TODO Add GCS upload code
+        from google.cloud import storage
+
+        storage_client = storage.Client()
+        bucket = storage_client.bucket('corise_airflow')
+        # blob = bucket.blob(blob_name)
+
+        for i, df in enumerate(unzip_result):
+            print(f'Schema of dataframe {i}:')
+            print(df.dtypes)
+
+            parquet_buffer = io.BytesIO()
+            # df_para_table = pa.Table.from_pandas(df)
+            pq.write_table(pa.Table.from_pandas(df), parquet_buffer)
+
+            blob = bucket.blob(data_types[i] + f'_df_{i}.parquet')
+            blob.upload_from_string(parquet_buffer.getvalue(), content_type='application/parquet')
+
+        # print(f"Wrote csv with pandas with name {blob_name} from bucket {bucket.name}.")
+        return 'Wrote Parquet files to GCP'
+
 
 
     # TODO Add task linking logic here
+    # unzip_data = extract()
+    # extract()
+    unzip_data = extract()
+    # order_summary = transform(unzip_data)
+    load(unzip_data)
 
 
 energy_dataset_dag = energy_dataset_dag()

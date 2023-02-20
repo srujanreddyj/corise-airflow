@@ -6,11 +6,12 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from airflow.operators.empty import EmptyOperator
+from airflow.sensors.external_task import ExternalTaskMarker, ExternalTaskSensor
 from airflow.models.dag import DAG
 from airflow.decorators import task, task_group
 
 TRAINING_DATA_PATH = 'week-2/price_prediction_training_data.csv'
-# DATASET_NORM_WRITE_BUCKET = '' # Modify here
+DATASET_NORM_WRITE_BUCKET = 'corise_airflow' # Modify here corise_airflow/week-2
 
 VAL_END_INDEX = 31056
 
@@ -224,7 +225,10 @@ def prepare_model_inputs(df_final: pd.DataFrame):
     client = GCSHook().get_conn()
     # 
     write_bucket = client.bucket(DATASET_NORM_WRITE_BUCKET)
+    # print('writing to bucket:', write_bucket)
+    # print('Training_data_path:', TRAINING_DATA_PATH)
     write_bucket.blob(TRAINING_DATA_PATH).upload_from_string(pd.DataFrame(dataset_norm).to_csv())
+    return 'uploaded to gcloud'
 
 
 @task
@@ -270,9 +274,6 @@ def multivariate_data(dataset,
     return np.array(data), np.array(labels)
 
 
-
-
-
 def train_xgboost(X_train, y_train, X_val, y_val) -> xgb.Booster:
     """
     Train xgboost model using training set and evaluated against evaluation set, using 
@@ -294,7 +295,8 @@ def train_xgboost(X_train, y_train, X_val, y_val) -> xgb.Booster:
 
 
 @task
-def produce_indices() -> List[Tuple[np.ndarray, np.ndarray]]:
+def produce_indices(max_indices: int, num_indices: int) -> List[Tuple[np.ndarray, np.ndarray]]:
+    import random
     """
     Produce zipped list of training and validation indices
 
@@ -306,12 +308,28 @@ def produce_indices() -> List[Tuple[np.ndarray, np.ndarray]]:
     """
     
     # TODO Modify here
+    indices = []
+    
+    for i in range(0, num_indices):
+        all_indices = set(range(1, max_indices))
+        random.seed(i)
+        num_unique_elements = round(len(all_indices) * 0.8)
+        train_indices = set(random.sample(all_indices, num_unique_elements))
+        val_indices = all_indices - train_indices
+        train_and_val_pair = np.array(list(train_indices)), np.array(list(val_indices))
+        indices.append(train_and_val_pair)
+        i = i+1
 
+    return indices
 
+    # return [zip([(np.array(sorted(list(train_indices))), np.array(sorted(list(val_indices))))])]
+    # return list(zip([np.array(sorted(list(train_indices))), np.array(sorted(list(val_indices)))]))
 
 @task
 def format_data_and_train_model(dataset_norm: np.ndarray,
                                 indices: Tuple[np.ndarray, np.ndarray]) -> xgb.Booster:
+    # from airflow.models.xcom import XCom
+    import pickle
     """
     Extract training and validation sets and labels, and train a model with a given
     set of training and validation indices
@@ -326,21 +344,54 @@ def format_data_and_train_model(dataset_norm: np.ndarray,
     model = train_xgboost(X_train, y_train, X_val, y_val)
     print(f"Model eval score is {model.best_score}")
 
+    # Store the trained model in an XCom with the specified key
+    # XCom.set(key='xcom_key', value=pickle.dumps(model))
+
     return model
 
 
 @task
 def select_best_model(models: List[xgb.Booster]):
+    from io import BytesIO
+    from google.cloud import storage
+    from airflow.providers.google.cloud.hooks.gcs import GCSHook
     """
     Select model that generalizes the best against the validation set, and 
     write this to GCS. The best_score is an attribute of the model, and corresponds to
     the highest eval score yielded during training.
     """
 
-   # TODO Modify here
+    # TODO Modify here
+    # Find the model with highest evaluation score
+    print('coolected models',models)
+    best_model = max(models, key= lambda model: model.best_score)
+    # best_model = max(models)
+    
+    #Wrtie the best model to GCS
+    MODEL_PATH = "week-2/best_model.bst"
+    client = GCSHook()
+    client.upload(
+        bucket_name=DATASET_NORM_WRITE_BUCKET,
+        object_name=MODEL_PATH,
+        data=BytesIO(best_model.save_raw(raw_format="ubj")).getvalue(),
+        timeout=600,
+    )
+    # with NameTemporaryFile as tmp_file:
+    #     #save the best model to a temp file
+    #     pickle.dump(best_model, tmp_file)
+    #     tmp_file.flush()
+
+    #     #Write the temporary file to GCS
+    #     gcs = storage.Client()
+    #     bucket = gcs.get_bucket('corise_airflow')
+    #     blob = bucket.blob('/')
+    #     blob.upload_from_filename(tmp_file.name)
+
+    return best_model    
 
 
-@task_group
+
+@task_group()
 def join_data_and_add_features():
     """
     Task group responsible for feature engineering, including:
@@ -362,6 +413,7 @@ def join_data_and_add_features():
 
 @task_group
 def train_and_select_best_model():
+    from google.cloud import storage
     """
     Task group responsible for training XGBoost models to predict energy prices, including:
        1. Reading the dataset norm from GCS
@@ -372,25 +424,64 @@ def train_and_select_best_model():
 
     Using different train/val splits, train multiple models and select the one with the best evaluation score.
     """
-
+    
+    #Reading the dataset norm from GCS
     past_history = 24
     future_target = 0
-    dataset_norm = read_dataset_norm()
+    # dataset_norm = read_dataset_norm()
+    dataset = read_dataset_norm()
 
     # TODO: Modify here to select best model and save it to GCS, using above methods including
     # format_data_and_train_model, produce_indices, and select_best_model
+    # Mapping each element of that list onto the indices argument of format_data_and_train_model
+    
+    trained_models = []
+    # for n in [0.85, 0.8]:
+        # xcom_key = f"model_{n}"
+        # trained_xgb_model = format_data_and_train_model(dataset_norm=dataset, indices=produce_indices(index_num = VAL_END_INDEX, frac = n), xcom_key='xcom_key')
+    # index_gen = produce_indices(max_indices = VAL_END_INDEX, num_indices = 3)
+
+    trained_xgb_model = format_data_and_train_model.partial(dataset_norm=dataset).expand(indices=produce_indices(max_indices = VAL_END_INDEX, num_indices = 3))
+    # trained_models.append(trained_xgb_model)
+
+    # Calling select_best_model on the output of all of the mapped tasks to select the best model and write it to GCS
+    # best_model = select_best_model(models=trained_models)
+    best_model = select_best_model(models=trained_xgb_model)
+
+    # return best_model    
 
 
-
-with DAG("energy_price_prediction",
+with DAG(dag_id = "energy_price_prediction_featuring",
+    # task_id="energy_price_prediction_featuring",
     schedule_interval=None,
     start_date=datetime(2021, 1, 1),
     tags=['model_training'],
     render_template_as_native_obj=True,
     concurrency=5
-    ) as dag:
+    ) as energy_price_prediction_featuring:
 
         group_1 = join_data_and_add_features() 
-        group_2 = train_and_select_best_model()
-        group_1 >> group_2
+        # group_2 = train_and_select_best_model()
+        # group_1 >> group_2
  
+with DAG(
+    dag_id="energy_price_predictin_modelling",
+    start_date=datetime(2021, 1, 1),
+    schedule=None,
+    catchup=False,
+    tags=["example2"],
+) as energy_price_predictin_modelling:
+    # [START howto_operator_external_task_sensor]
+    feature_sensor = ExternalTaskSensor(
+        task_id="feature_sensor",
+        external_dag_id=energy_price_prediction_featuring.dag_id,
+        # external_task_id=energy_price_prediction_featuring.task_id,
+        poke_interval = 60,
+        retires=2,
+        timeout=600,
+        # allowed_states=["success"],
+        # failed_states=["failed", "skipped"],
+        mode="reschedule",
+    )
+    group_2 = train_and_select_best_model()
+    feature_sensor >> group_2

@@ -1,0 +1,176 @@
+[
+    {
+      "name": "time",
+      "mode": "NULLABLE",
+      "type": "STRING",
+      "fields": []
+    },
+    {
+      "name": "generation_biomass",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_fossil_brown_coal_lignite",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_fossil_coal_derived_gas",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_fossil_gas",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_fossil_hard_coal",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_fossil_oil",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_fossil_oil_shale",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_fossil_peat",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_geothermal",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_hydro_pumped_storage_aggregated",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_hydro_pumped_storage_consumption",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_hydro_run_of_river_and_poundage",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_hydro_water_reservoir",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_marine",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_nuclear",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_other",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_other_renewable",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_solar",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_waste",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_wind_offshore",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "generation_wind_onshore",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "forecast_solar_day_ahead",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "forecast_wind_offshore_eday_ahead",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "forecast_wind_onshore_day_ahead",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "total_load_forecast",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "total_load_actual",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "price_day_ahead",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    },
+    {
+      "name": "price_actual",
+      "mode": "NULLABLE",
+      "type": "FLOAT",
+      "fields": []
+    }
+  ]

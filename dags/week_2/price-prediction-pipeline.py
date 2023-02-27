@@ -477,7 +477,6 @@ with DAG(
         external_dag_id=energy_price_prediction_featuring.dag_id,
         # external_task_id=energy_price_prediction_featuring.task_id,
         poke_interval = 60,
-        retires=2,
         timeout=600,
         # allowed_states=["success"],
         # failed_states=["failed", "skipped"],

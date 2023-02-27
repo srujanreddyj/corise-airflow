@@ -117,40 +117,21 @@ def data_warehouse_transform_dag():
             bucket.blob(f"week-3/{DATA_TYPES[index]}.parquet").upload_from_string(df.to_parquet(), "text/parquet")
             print(df.dtypes)
 
-    @task
+    @task_group
     def create_bigquery_dataset():
         from airflow.providers.google.cloud.operators.bigquery import BigQueryCreateEmptyDatasetOperator
-        # EmptyOperator(task_id='placeholder')
+        EmptyOperator(task_id='placeholder')
         # TODO Modify here to create a BigQueryDataset if one does not already exist
         # This is where your tables and views will be created
-        # create_dataset = BigQueryCreateEmptyDatasetOperator(task_id="create_energy_dataset", dataset_id=BQ_DATASET_NAME)
-        # create_dataset = BigQueryCreateEmptyDatasetOperator(
-        #     task_id='create_generation_weather_dataset',
-        #     dataset_id=BQ_DATASET_NAME,
-        #     project_id=PROJECT_ID,
-        #     location='US',
-        # )
-        # create_dataset_with_location = BigQueryCreateEmptyDatasetOperator(
-        #     task_id="create_dataset_with_location",
-        #     dataset_id=BQ_DATASET_NAME,
-        #     location='US',
-        # )
-        print(BigQueryCreateEmptyDatasetOperator(
+        create_dataset = BigQueryCreateEmptyDatasetOperator(
             task_id='create_generation_weather_dataset',
             dataset_id=BQ_DATASET_NAME,
             project_id=PROJECT_ID,
-            location='US',
-            exists_ok= True
-        ))
-        return BigQueryCreateEmptyDatasetOperator(
-            task_id="create_dataset_with_location",
-            dataset_id=BQ_DATASET_NAME,
-            location='US',
-            exists_ok= True
+            location='us-east1'
         )
         
 
-    @task
+    @task_group
     def get_bigquery_dataset():
         from airflow.providers.google.cloud.operators.bigquery import BigQueryGetDatasetOperator
         EmptyOperator(task_id='placeholder')
@@ -190,6 +171,7 @@ def data_warehouse_transform_dag():
         # PARQUET.
         create_external_table_multiple_types = BigQueryCreateExternalTableOperator(
             task_id="create_energy_table",
+            
             table_resource={
                 "tableReference": {
                     "projectId": PROJECT_ID,
@@ -244,6 +226,7 @@ def data_warehouse_transform_dag():
             # autodetect=True,
             # source_objects='week-3/*', #The path to the CSV file within the GCS bucket.
             #dictionary that contains DDL configuration parameters for the table.
+            
             table_resource={
                 "tableReference": {
                     "projectId": PROJECT_ID,
@@ -298,10 +281,6 @@ def data_warehouse_transform_dag():
         table1_task_id = 'energy_table_task_id'
         table2_task_id = 'weather_table_task_id'
 
-        # Define the name of the new normalized views
-        view1_id = 'energy_view'
-        view2_id = 'weather_view'
-
         # Define the SQL queries for the new normalized views
         sql_statements = {}
         for c in normalized_columns:
@@ -314,11 +293,9 @@ def data_warehouse_transform_dag():
             table_id="generation_view",
             view={
                 "query": f"{sql_statements['generation']} from `{PROJECT_ID}.{BQ_DATASET_NAME}.energy_generation_table`",
-                # "query": f"SELECT CAST(time AS TIMESTAMP) from `{PROJECT_ID}.{BQ_DATASET_NAME}.energy_generation_table`",
                 "useLegacySql": False,
             },
         )
-        print(f"{sql_statements['generation']} from `{PROJECT_ID}.{BQ_DATASET_NAME}.energy_generation_table")
 
         create_view2 = BigQueryCreateEmptyTableOperator(
             task_id='weather_task_id',
@@ -332,22 +309,22 @@ def data_warehouse_transform_dag():
 
 
 
-    @task
+    @task_group
     def produce_joined_view():
         from airflow.providers.google.cloud.operators.bigquery import BigQueryCreateEmptyTableOperator
         # TODO Modify here to produce a view that joins the two normalized views on time
-        EmptyOperator(task_id='placeholder')
+        EmptyOperator(task_id='placeholder2')
         generation_table_id="generation_view"
         weather_table_id="weather_view"
         joined_view_id = 'joined_view'
 
         # Create an empty table operator as a placeholder
-        placeholder = BigQueryCreateEmptyTableOperator(
-            task_id='placeholder',
-            dataset_id='your_dataset_id',
-            table_id=joined_view_id,
-            table_resource={}
-        )
+        # placeholder = BigQueryCreateEmptyTableOperator(
+        #     task_id='placeholder',
+        #     dataset_id='your_dataset_id',
+        #     table_id=joined_view_id,
+        #     table_resource={}
+        # )
 
         # Create the joined view operator that depends on the two normalized view tasks
         joined_view = BigQueryCreateEmptyTableOperator(

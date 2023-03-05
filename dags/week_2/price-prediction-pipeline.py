@@ -10,6 +10,10 @@ from airflow.sensors.external_task import ExternalTaskMarker, ExternalTaskSensor
 from airflow.models.dag import DAG
 from airflow.decorators import task, task_group
 
+from common.week_2.model import multivariate_data, train_xgboost, VAL_END_INDEX
+
+from common.week_2.feature_engineering import join_data_and_add_features
+
 TRAINING_DATA_PATH = 'week-2/price_prediction_training_data.csv'
 DATASET_NORM_WRITE_BUCKET = 'corise_airflow' # Modify here corise_airflow/week-2
 
@@ -236,7 +240,6 @@ def read_dataset_norm():
     """
     Read dataset norm from storage
 
-    CHALLENGE have this automatically read using a sensor
     """
 
     from airflow.providers.google.cloud.hooks.gcs import GCSHook
@@ -301,10 +304,15 @@ def produce_indices(max_indices: int, num_indices: int) -> List[Tuple[np.ndarray
     Produce zipped list of training and validation indices
 
     Each pair of training and validation indices should not overlap, and the
-    training indices should never exceed the max of VAL_END_INDEX. 
+    training indices should never exceed the max of VAL_END_INDEX. This is 
+    because the data from VAL_END_INDEX to the end will be used in the test
+    dataset downstream from this pipeline.
 
     The number of pairs produced here will be equivalent to the number of 
-    mapped 'format_data_and_train_model' tasks you have 
+    mapped 'format_data_and_train_model' tasks you have. For example, a list of
+    size that is simply 
+    [np.array(range(start_training_idx, end_training_idx) , range(end_training_idx, end_val_idx))]
+    will be produced one mapped task.
     """
     
     # TODO Modify here
@@ -433,22 +441,7 @@ def train_and_select_best_model():
 
     # TODO: Modify here to select best model and save it to GCS, using above methods including
     # format_data_and_train_model, produce_indices, and select_best_model
-    # Mapping each element of that list onto the indices argument of format_data_and_train_model
-    
-    trained_models = []
-    # for n in [0.85, 0.8]:
-        # xcom_key = f"model_{n}"
-        # trained_xgb_model = format_data_and_train_model(dataset_norm=dataset, indices=produce_indices(index_num = VAL_END_INDEX, frac = n), xcom_key='xcom_key')
-    # index_gen = produce_indices(max_indices = VAL_END_INDEX, num_indices = 3)
 
-    trained_xgb_model = format_data_and_train_model.partial(dataset_norm=dataset).expand(indices=produce_indices(max_indices = VAL_END_INDEX, num_indices = 3))
-    # trained_models.append(trained_xgb_model)
-
-    # Calling select_best_model on the output of all of the mapped tasks to select the best model and write it to GCS
-    # best_model = select_best_model(models=trained_models)
-    best_model = select_best_model(models=trained_xgb_model)
-
-    # return best_model    
 
 
 with DAG(dag_id = "energy_price_prediction_featuring",
